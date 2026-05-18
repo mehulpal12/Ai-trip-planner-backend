@@ -29,6 +29,12 @@ export const createUser = async (userData: any) => {
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 10);
 
+  // Generate verification token
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+
+  // Hash verification token for DB storage
+  const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
   // Create user
   const user = await prisma.user.create({
     data: {
@@ -36,16 +42,34 @@ export const createUser = async (userData: any) => {
       email,
       password: hashedPassword,
       role,
+      verificationToken: hashedToken,
+      isVerified: false,
     },
     select: {
       id: true,
       name: true,
       email: true,
       role: true,
+      isVerified: true,
+      verificationToken: true,
       createdAt: true,
       updatedAt: true,
     },
   });
+
+  // Send Email
+  try {
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+    const verifyUrl = `${clientUrl}/verify-email/${verificationToken}`;
+    await sendEmail({
+      to: user.email,
+      subject: "Verify Your Email",
+      html: emailVerificationTemplate(verifyUrl, user.name || "User"),
+    });
+    console.log(`✅ Verification email sent to ${user.email}`);
+  } catch (emailError) {
+    console.error("Error sending verification email during registration:", emailError);
+  }
 
   return user;
 };
@@ -65,6 +89,11 @@ export const loginUserService = async (userData: any) => {
   const isPasswordValid = await bcrypt.compare(password, user.password);
   if (!isPasswordValid) {
     throw new AppError('Invalid email or password', 401);
+  }
+
+  // Check email verification status
+  if (!user.isVerified) {
+    throw new AppError('Please verify your email first', 401);
   }
 
   // 3. Generate Access and Refresh tokens
@@ -223,7 +252,8 @@ export const processResetPassword = async (token: string, newPassword: string) =
 };
 
 export const processEmailVerification = async (token: string) => {
-    const user = await prisma.user.findFirst({ where: { verificationToken: token } });
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await prisma.user.findFirst({ where: { verificationToken: hashedToken } });
     if (!user) throw new AppError('Invalid verification token', 400);
 
     await prisma.user.update({
@@ -270,16 +300,20 @@ export const processResendVerification = async (
     .randomBytes(32)
     .toString("hex");
 
+  // Hash verification token for DB storage
+  const hashedToken = crypto.createHash('sha256').update(verificationToken).digest('hex');
+
   // Save token in DB
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      verificationToken,
+      verificationToken: hashedToken,
     },
   });
 
   // Verification URL
-  const verificationUrl = `${process.env.CLIENT_URL}/verify-email/${verificationToken}`;
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+  const verificationUrl = `${clientUrl}/verify-email/${verificationToken}`;
 
   // Send Email
   await sendEmail({

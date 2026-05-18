@@ -107,7 +107,11 @@ export const getUserById = async (
   next: NextFunction,
 ) => {
   try {
-    const user = await userService.findUserById((req as any).user.id);
+    const { id } = req.params;
+    if (!id || typeof id !== "string") {
+      return next(new AppError("User ID parameter is required and must be a string", 400));
+    }
+    const user = await userService.findUserById(id);
     res.status(200).json({ success: true, data: user });
   } catch (error) {
     next(error);
@@ -120,7 +124,11 @@ export const deleteUser = async (
   next: NextFunction,
 ) => {
   try {
-    await userService.deleteUserById((req as any).user.id);
+    const { id } = req.params;
+    if (!id || typeof id !== "string") {
+      return next(new AppError("User ID parameter is required and must be a string", 400));
+    }
+    await userService.deleteUserById(id);
     res.status(200).json({ success: true, message: "User removed" });
   } catch (error) {
     next(error);

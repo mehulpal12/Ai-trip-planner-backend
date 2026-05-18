@@ -33,6 +33,7 @@ model TripMember {
 
   tripId    String
   userId    String
+  memberName String?
 
   role      MemberRole @default(MEMBER)
 
@@ -50,11 +51,22 @@ enum MemberRole {
 
 model Destination {
   id        String @id @default(cuid())
+tripId      String
 
-  city      String
-  country   String
+  name        String
+  city        String
+  state       String?
+  country     String?
 
-  tripId    String
+  latitude    Float?
+  longitude   Float?
+
+  startDate   DateTime?
+  endDate     DateTime?
+
+  order       Int
+
+  createdAt   DateTime @default(now())
 
   trip      Trip @relation(fields: [tripId], references: [id])
 }

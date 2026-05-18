@@ -48,4 +48,4 @@ router.get("/:id", protect, authorizeSelfOrAdmin("ADMIN", "MODERATOR"), getUserB
 router.delete("/:id", protect, authorizeSelfOrAdmin("ADMIN"), deleteUser);
 
 export default router;
-
+

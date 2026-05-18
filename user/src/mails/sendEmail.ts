@@ -21,6 +21,10 @@ export const sendEmail = async ({
   subject,
   html,
 }: SendEmailOptions) => {
+  if (process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined) {
+    console.log(`[TEST MODE] Skipping actual email to ${to}`);
+    return;
+  }
   await transporter.sendMail({
     from: `"AI Trip Planner" <${process.env.MAIL_USER}>`,
     to,

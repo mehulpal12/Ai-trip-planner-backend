@@ -35,7 +35,25 @@ describe('User API Endpoints', () => {
     testUserId = res.body.data.id;
   });
 
-  it('POST /api/users/login - Should login and return tokens', async () => {
+  it('POST /api/users/login - Should fail if email is not verified', async () => {
+    const res = await request(app)
+      .post('/api/users/login')
+      .send({
+        email: testUser.email,
+        password: testUser.password
+      });
+
+    expect(res.statusCode).toEqual(401);
+    expect(res.body.message).toBe('Please verify your email first');
+  });
+
+  it('POST /api/users/login - Should login and return tokens after verification', async () => {
+    // Verify the user first so login works!
+    await prisma.user.update({
+      where: { id: testUserId },
+      data: { isVerified: true }
+    });
+
     const res = await request(app)
       .post('/api/users/login')
       .send({
