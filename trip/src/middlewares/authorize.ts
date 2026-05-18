@@ -8,7 +8,7 @@ export const isTripOwner = async (
   next: NextFunction
 ) => {
   try {
-    const tripId = req.params.id as string;
+    const tripId = (req.params.id || req.params.tripId) as string;
     const userId = req.user?.id;
 
     if (!userId) {

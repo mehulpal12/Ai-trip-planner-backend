@@ -50,8 +50,9 @@ enum MemberRole {
 }
 
 model Destination {
-  id        String @id @default(cuid())
-tripId      String
+  id          String   @id @default(cuid())
+
+  tripId      String
 
   name        String
   city        String
@@ -64,9 +65,12 @@ tripId      String
   startDate   DateTime?
   endDate     DateTime?
 
-  order       Int
+  orderIndex  Int
 
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  trip      Trip @relation(fields: [tripId], references: [id])
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
 }
