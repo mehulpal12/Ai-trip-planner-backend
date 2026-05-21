@@ -92,9 +92,9 @@ export const loginUserService = async (userData: any) => {
   }
 
   // Check email verification status
-  if (!user.isVerified) {
-    throw new AppError('Please verify your email first', 401);
-  }
+  // if (!user.isVerified) {
+  //   throw new AppError('Please verify your email first', 401);
+  // }
 
   // 3. Generate Access and Refresh tokens
   const { accessToken, refreshToken } = generateTokens(user.id, user.role);

@@ -65,7 +65,11 @@ export const getTripById = async (
     });
   }
 
-  if (trip.createdBy !== req.user.id) {
+  const hasAccess =
+    trip.createdBy === req.user.id ||
+    trip.members?.some((member: { userId: string }) => member.userId === req.user.id);
+
+  if (!hasAccess) {
     return res.status(403).json({
       success: false,
       message: "Forbidden - You do not have access to this trip",
@@ -125,4 +129,4 @@ export const getUserTrips = async (
     success: true,
     data: trips,
   });
-};
+};

@@ -8,7 +8,7 @@ export const generateTokens = (userId: string, role: string) => {
 
   // Access Token: Short-lived (e.g., 15 minutes to 1 hour)
   const accessOptions: SignOptions = {
-    expiresIn: '1h', 
+    expiresIn: '1d', 
   };
 
   // Refresh Token: Long-lived (e.g., 7 days)
@@ -29,4 +29,4 @@ export const verifyRefreshToken = (token: string) => {
   } catch (error) {
     return null;
   }
-};
+};
