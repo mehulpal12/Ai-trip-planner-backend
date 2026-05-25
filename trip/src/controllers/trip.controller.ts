@@ -65,9 +65,12 @@ export const getTripById = async (
     });
   }
 
+  // 🚀 FIX: explicitly type 'member' matching Prisma's type signature, allowing null values
   const hasAccess =
     trip.createdBy === req.user.id ||
-    trip.members?.some((member: { userId: string }) => member.userId === req.user.id);
+    trip.members?.some(
+      (member: { userId: string | null }) => member.userId && member.userId === req.user.id
+    );
 
   if (!hasAccess) {
     return res.status(403).json({

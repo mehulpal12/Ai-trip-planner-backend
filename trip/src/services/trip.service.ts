@@ -1,9 +1,18 @@
 import prisma from "../config/db.js";
 
-export const createTrip = async (
-  data: any
-) => {
-  const { createdBy, destination, notes, description, startDate, endDate, ...tripData } = data;
+export const createTrip = async (data: any) => {
+  // 1. Destructure the updated 'destinations' array coming from your frontend payload
+  const { 
+    createdBy, 
+    destination, // fallback for legacy logic if needed
+    destinations, // 🚀 New structured destinations array 
+    notes, 
+    description, 
+    startDate, 
+    endDate, 
+    ...tripData 
+  } = data;
+
   return prisma.trip.create({
     data: {
       ...tripData,
@@ -11,7 +20,21 @@ export const createTrip = async (
       endDate: new Date(endDate),
       description: description ?? notes,
       createdBy,
-      ...(destination
+      
+      // 2. Map and parse incoming structured destinations cleanly into Prisma's relational create block
+      ...(destinations && destinations.length > 0
+        ? {
+            destinations: {
+              create: destinations.map((dest: any, index: number) => ({
+                name: dest.name || "Unmapped Destination",
+                city: dest.city || null,
+                state: dest.state || null,
+                country: dest.country || null,
+                orderIndex: index, // Dynamically set the orderIndex based on its array placement
+              })),
+            },
+          }
+        : destination // Fallback legacy fallback support in case a string comes through
         ? {
             destinations: {
               create: {
@@ -22,6 +45,7 @@ export const createTrip = async (
             },
           }
         : {}),
+
       members: {
         create: {
           userId: createdBy,
@@ -60,46 +84,55 @@ export const getTripById = async (
   });
 };
 
-export const updateTrip = async (
-  id: string,
-  data: any
-) => {
-  const { destination, notes, description, ...tripData } = data;
 
-  const existingDestination = destination
-    ? await prisma.destination.findFirst({
-        where: { tripId: id },
-        orderBy: { orderIndex: "asc" },
-      })
-    : null;
-
-  if (destination) {
-    if (existingDestination) {
-      await prisma.destination.update({
-        where: { id: existingDestination.id },
-        data: {
-          name: destination,
-          city: destination,
-        },
-      });
-    } else {
-      await prisma.destination.create({
-        data: {
-          tripId: id,
-          name: destination,
-          city: destination,
-          orderIndex: 0,
-        },
-      });
-    }
-  }
+export const updateTrip = async (id: string, data: any) => {
+  const { 
+    createdBy, 
+    destination, 
+    destinations, 
+    notes, 
+    description, 
+    startDate, 
+    endDate, 
+    ...tripData 
+  } = data;
 
   return prisma.trip.update({
     where: { id },
     data: {
       ...tripData,
-      ...(notes !== undefined || description !== undefined
-        ? { description: description ?? notes }
+      // 🚀 FIX 1: Wrap dates in JS Date objects so they validate as true ISO-8601 instances
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      description: description ?? notes,
+
+      // 🚀 FIX 2: Clear old destinations and create the newly updated structured list
+      ...(destinations && destinations.length > 0
+        ? {
+            destinations: {
+              // Delete all previous destinations tied to this trip id to prevent duplicates
+              deleteMany: {}, 
+              // Create the updated set from the frontend array payload
+              create: destinations.map((dest: any, index: number) => ({
+                name: dest.name || "Unmapped Destination",
+                city: dest.city || null,
+                state: dest.state || null,
+                country: dest.country || null,
+                orderIndex: index,
+              })),
+            },
+          }
+        : destination
+        ? {
+            destinations: {
+              deleteMany: {},
+              create: {
+                name: destination,
+                city: destination,
+                orderIndex: 0,
+              },
+            },
+          }
         : {}),
     },
     include: {
