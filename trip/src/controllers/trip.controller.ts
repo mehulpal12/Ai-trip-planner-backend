@@ -69,7 +69,7 @@ export const getTripById = async (
   const hasAccess =
     trip.createdBy === req.user.id ||
     trip.members?.some(
-      (member: { userId: string | null }) => member.userId && member.userId === req.user.id
+      (member: { userId: string }) => member.userId === req.user.id
     );
 
   if (!hasAccess) {

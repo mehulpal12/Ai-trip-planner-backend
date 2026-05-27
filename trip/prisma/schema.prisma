@@ -32,14 +32,14 @@ model Trip {
 model TripMember {
   id         String     @id @default(cuid())
   tripId     String
-  userId     String?
+  userId     String
   memberName String?
   role       MemberRole @default(MEMBER)
   joinedAt   DateTime   @default(now())
   avatar     String?
   trip       Trip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
-  // @@unique([tripId, userId])
+  @@unique([tripId, userId])
   @@index([tripId])
 }
 

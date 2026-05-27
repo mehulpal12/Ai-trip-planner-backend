@@ -19,12 +19,10 @@ export const getMembers = async (tripId: string) => {
 };
 
 export const removeMember = async (tripId: string, userId: string) => {
-  return prisma.tripMember.delete({
+  return prisma.tripMember.deleteMany({
     where: {
-      tripId_userId: {
-        tripId,
-        userId,
-      },
+      tripId,
+      userId,
     },
   });
 };

@@ -29,7 +29,7 @@ export const loginUser = async (
     res.status(200).json({
       success: true,
       message: "Login successful",
-      ...result,
+      data: result,
     });
   } catch (error) {
     next(error);
@@ -146,7 +146,11 @@ export const refreshToken = async (
       return next(new AppError("Refresh token is required", 400));
     }
     const tokens = await userService.refreshUserTokens(refreshToken);
-    res.status(200).json({ success: true, ...tokens });
+    res.status(200).json({
+      success: true,
+      message: "Token refreshed successfully",
+      data: tokens,
+    });
   } catch (error) {
     next(error);
   }
