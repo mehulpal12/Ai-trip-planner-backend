@@ -5,8 +5,9 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles"
+    "build": "tsc && node --input-type=commonjs -e \"require('fs').cpSync('src/generated','dist/generated',{recursive:true})\"",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",
