@@ -20,6 +20,7 @@
     "express": "^5.2.1",
     "helmet": "^8.2.0",
     "openai": "^6.39.0",
+    "redis": "^6.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
