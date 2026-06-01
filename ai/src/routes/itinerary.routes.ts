@@ -4,11 +4,12 @@ import {
   handleGetCacheStats, 
   handleClearCache 
 } from "../controllers/itinerary.controller.js";
+import { aiRateLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
 // Route for generation logic
-router.post("/generate", handleItineraryCreation);
+router.post("/generate",  aiRateLimiter,  handleItineraryCreation);
 
 // Route to check cache count and keys
 router.get("/cache-stats", handleGetCacheStats);
