@@ -14,7 +14,7 @@ app.use(express.json());
 app.use("/api/ai/itinerary", itineraryRouter);
 
 app.get("/health", (_, res) => {
-  res.status(200).json({ success: true, service: "ai-service", status: "healthy" });
+  res.status(200).json({ success: true, service: "ai-service 123456", status: "healthy" });
 });
 
 app.get("/redis-health", async (_, res) => {

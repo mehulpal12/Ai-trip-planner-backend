@@ -1,16 +1,16 @@
-import { aiProvider } from "../providers/openai.provider.js";
+import { OpenAI } from "openai";
 import { generateItineraryPrompt } from "../prompts/itinerary.prompt.js";
 import type { ItineraryInput, ItineraryOutput } from "../types/itinerary.types.js";
 import { ItineraryOutputSchema } from "../types/itinerary.types.js";
 import { CacheService } from "../services/cache.service.js";
 import { generateItineraryCacheKey } from "../utils/cache.js";
 
-/**
- * Orchestrates the travel itinerary generation using Google Gemini with Redis caching.
- * Abstracts the vendor transition completely away from the controller.
- */
+const nvClient = new OpenAI({
+  baseURL: "https://integrate.api.nvidia.com/v1",
+  apiKey: process.env.NVIDIA_API_KEY || "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",
+});
+
 export async function processItineraryGeneration(input: ItineraryInput): Promise<any> {
-  // Generate the unique cache key based on the input criteria
   const cacheKey = generateItineraryCacheKey(
     input.destination,
     input.days,
@@ -30,44 +30,53 @@ export async function processItineraryGeneration(input: ItineraryInput): Promise
       };
     }
 
-    // 2. Cache Miss - Proceed to call Gemini
+    // 2. Cache Miss - Proceed to call NVIDIA Hosted Gemma-2 Model
     console.log(`[REDIS MISS] ${cacheKey}`);
-    const promptText = generateItineraryPrompt(input);
+    const corePromptText = generateItineraryPrompt(input);
 
-    // Call the Google Gen AI SDK instead of OpenAI
-    const response = await aiProvider.models.generateContent({
-      model: "gemini-2.5-flash", // Fast, lightweight, and perfect for structured JSON data
-      contents: promptText,
-      config: {
-        // System instructions guide the underlying behavior of the model
-        systemInstruction: "You are a deterministic data-serialization backend engine. You output raw JSON objects perfectly matching the requested schema. No markdown formatting blocks.",
-        temperature: 0.7,
-      }
+    // Combine system and user context into a single user message block
+    const combinedPayloadPrompt = `[SYSTEM DIRECTION]
+You are a deterministic backend data orchestration engine. You must output raw, structurally valid JSON matching the requested structure perfectly. Do not include markdown formatting, markdown backticks (\`\`\`), or conversational prose.
+
+[USER REQUEST]
+${corePromptText}`;
+
+    const completion = await nvClient.chat.completions.create({
+      model: "google/gemma-2-2b-it",
+      messages: [
+        {
+          role: "user", // ✅ Only use 'user' role to prevent 500 endpoint errors
+          content: combinedPayloadPrompt,
+        },
+      ],
+      temperature: 0.2, 
+      top_p: 0.7,
+      max_tokens: 2048, 
+      stream: false,
     });
 
-    // Extract text from the Gemini response payload structure
-    const rawText = response.text;
-    if (!rawText) {
-      throw new Error("AI provider returned an empty response.");
+    const rawContent = completion.choices[0]?.message?.content;
+    if (!rawContent) {
+      throw new Error("NVIDIA API endpoint returned an empty completion message content segment.");
     }
 
-    // Sanitize any accidental markdown code fencing blocks (```json ... ```) 
-    const cleanedText = rawText.replace(/```json|```/g, "").trim();
+    // Clean up any stray markdown code fencing blocks (```json ... ```) if the model bleeds them
+    const cleanedText = rawContent.replace(/```json|```/g, "").trim();
     const jsonParsed = JSON.parse(cleanedText);
     
-    // Enforce strict structural schema validation using Zod before returning data
+    // Validate the raw object against your Zod structural requirements
     const validatedItinerary = ItineraryOutputSchema.parse(jsonParsed);
 
     // 3. Store the freshly generated itinerary in Redis for 1 hour (3600 seconds)
     await CacheService.set(cacheKey, validatedItinerary, 3600);
 
     return {
-      source: "gemini",
+      source: "nvidia-gemma",
       data: validatedItinerary,
     };
 
   } catch (error: any) {
-    console.error("[AI Service Error] Parsing or structural validation failed:", error);
+    console.error("[AI Service Error] Operations pipeline processing failure:", error);
     throw new Error(error.message || "Failed to generate a valid itinerary structure. Please try again.");
   }
 }

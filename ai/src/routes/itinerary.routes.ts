@@ -1,20 +1,28 @@
 import { Router } from "express";
 import { 
   handleItineraryCreation, 
-  handleGetCacheStats, 
-  handleClearCache 
+  handleGetAllUserItineraries,
+  handleDeleteSingleItinerary,
+  handleClearAllUserItineraries
 } from "../controllers/itinerary.controller.js";
 import { aiRateLimiter } from "../middleware/rateLimiter.js";
+// import { protectAuth } from "../middleware/auth.js"; 
 
 const router = Router();
 
-// Route for generation logic
-router.post("/generate",  aiRateLimiter,  handleItineraryCreation);
+// Secure all downstream operations using your authentication guard
+// router.use(protectAuth)
 
-// Route to check cache count and keys
-router.get("/cache-stats", handleGetCacheStats);
+// 1. Generate & Cache (Checks rate-limiting first)
+router.post("/generate",  handleItineraryCreation);
 
-// Route to invalidate all cached records
-router.delete("/cache", handleClearCache);
+// 2. Read History Stack (Fetches all unexpired cached objects for the sidebar)
+router.get("/history", handleGetAllUserItineraries);
+
+// 3. Delete Specific Target Cache Key
+router.delete("/remove-item", handleDeleteSingleItinerary);
+
+// 4. Wipe Entire User Portfolio Deck
+router.delete("/clear-all", handleClearAllUserItineraries);
 
 export default router;

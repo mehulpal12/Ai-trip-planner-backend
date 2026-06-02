@@ -2,7 +2,7 @@ import { type Request, type Response, type NextFunction } from "express";
 import { redisClient } from "../config/redis.js";
 
 const WINDOW_SIZE = 15 * 60; // 15 minutes (900 seconds)
-const MAX_REQUESTS = 20;     // Max AI generations allowed
+const MAX_REQUESTS = 30;     // Max AI generations allowed
 
 export const aiRateLimiter = async (
   req: Request,
