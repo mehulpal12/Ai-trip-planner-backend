@@ -4,14 +4,38 @@ import * as itineraryService from "./itinerary.service.js";
 export async function save(req: Request, res: Response) {
   try {
     const { tripId } = req.params;
+    if (!tripId) {
+      return res.status(400).json({
+        success: false,
+        message: "Required parameter 'tripId' is missing from request route."
+      });
+    }
+    
+    // Extract both the data payload and the fingerprint hash from the request body
+    const { itinerary, inputHash } = req.body;
 
-    // 1. Defensively strip away potential hidden properties or circular strings
-    // If this throws an error right here, your payload definitely has a circular reference!
-    const cleanItinerary = JSON.parse(JSON.stringify(req.body));
+    if (!inputHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Required property 'inputHash' is missing from the request body."
+      });
+    }
 
+    if (!itinerary) {
+      return res.status(400).json({
+        success: false,
+        message: "Required property 'itinerary' data payload is missing from the request body."
+      });
+    }
+
+    // Defensively strip away potential hidden properties or circular strings
+    const cleanItinerary = JSON.parse(JSON.stringify(itinerary));
+
+    // Pass the inputHash along with the payload down to the database service layer
     const result = await itineraryService.saveItinerary(
       tripId as string,
-      cleanItinerary
+      cleanItinerary,
+      inputHash as string
     );
 
     return res.status(200).json({
@@ -19,7 +43,6 @@ export async function save(req: Request, res: Response) {
       data: result
     });
   } catch (error: any) {
-    // If the clean step caught it
     if (error instanceof TypeError && error.message.includes("circular structure")) {
       return res.status(400).json({
         success: false,
@@ -45,6 +68,8 @@ export async function save(req: Request, res: Response) {
 export async function get(req: Request, res: Response) {
   try {
     const { tripId } = req.params;
+    // Get the inputHash from the query parameters: /api/.../itinerary?inputHash=abc123xyz
+    const { inputHash } = req.query;
 
     if (!tripId) {
       return res.status(400).json({
@@ -53,14 +78,22 @@ export async function get(req: Request, res: Response) {
       });
     }
 
-    // Call the service to find the itinerary by its unique tripId relation
-    const result = await itineraryService.getItinerary(tripId as string);
+    if (!inputHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Required query parameter 'inputHash' is missing from request URL."
+      });
+    }
 
-    // If no record exists for this trip, return a clean 404 status instead of sending empty data
+    // Call the service, passing both fields to verify version alignment
+    const result = await itineraryService.getItinerary(tripId as string, inputHash as string);
+
+    // If no record exists, or if it was a version mismatch (service returned null)
+    // return a clean 404 status so the orchestration client triggers AI generation fallback
     if (!result) {
       return res.status(404).json({
         success: false,
-        message: `No itinerary found matching Trip ID: ${tripId}`
+        message: `No matching up-to-date itinerary found for Trip ID: ${tripId}`
       });
     }
 
@@ -81,9 +114,7 @@ export async function deleteController(req: Request, res: Response) {
   try {
     const { tripId } = req.params;
 
-    const result = await itineraryService.deleteItinerary(
-      tripId as string
-    );
+    const result = await itineraryService.deleteItinerary(tripId as string);
 
     return res.status(200).json({
       success: true,

@@ -25,20 +25,22 @@ model Trip {
   destinations    Destination[]
   recommendations Recommendation[]
   members         TripMember[]
-  itinerary       Itinerary?
+  itinerary       Itinerary[]
 
   @@map("trips")
 }
 
 model Itinerary {
   id        String   @id @default(cuid())
-  tripId    String   @unique
-  
+  tripId    String   // 1. Removed the @unique constraint from here
+  inputHash String   // 2. Made this required (removed the ?) to use it in our unique constraint
   itinerary Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
 
+  // 3. This composite unique constraint is the magic fix
+  @@unique([tripId, inputHash])
   @@index([tripId])
 }
 

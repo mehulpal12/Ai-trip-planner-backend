@@ -1,88 +1,70 @@
 import { OpenAI } from "openai";
+import crypto from "crypto";
 import { generateItineraryPrompt } from "../prompts/itinerary.prompt.js";
 import type { ItineraryInput } from "../types/itinerary.types.js";
 import { ItineraryOutputSchema } from "../types/itinerary.types.js";
 import { CacheService } from "../services/cache.service.js";
 import { getItinerary, saveItinerary } from "../client/trip.client.js";
-
+import { config } from "dotenv";
+config();
 const nvClient = new OpenAI({
   baseURL: "https://integrate.api.nvidia.com/v1",
-  apiKey: process.env.NVIDIA_API_KEY || "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", 
+  apiKey: process.env.NVIDIA_API_KEY, 
 });
+
+function generateInputHash(input: ItineraryInput): string {
+  const sortedString = JSON.stringify(input, Object.keys(input).sort());
+  return crypto.createHash("sha256").update(sortedString).digest("hex");
+}
 
 export async function processItineraryGeneration(
   input: ItineraryInput,
   tripId: string
 ): Promise<any> {
-  const cacheKey = `trip:${tripId}:itinerary`;
+  const inputHash = generateInputHash(input);
+  const cacheKey = `trip:${tripId}:input:${inputHash}:itinerary`;
 
   try {
     // ==========================
     // 1. REDIS CHECK
     // ==========================
     const cachedData = await CacheService.get<any>(cacheKey);
-
     if (cachedData) {
       console.log(`[REDIS HIT] ${cacheKey}`);
-      return {
-        source: "redis-cache",
-        data: cachedData.data || cachedData, // Safety fallback for legacy cache structures
-      };
+      return { source: "redis-cache", data: cachedData.data };
     }
     console.log(`[REDIS MISS] ${cacheKey}`);
 
     // ==========================
-    // 2. DATABASE CHECK
+    // 2. MICROSERVICE / DB CHECK
     // ==========================
     let dbResponse = null;
     try {
-      dbResponse = await getItinerary(tripId);
+      dbResponse = await getItinerary(tripId, inputHash);
     } catch (error: any) {
-      // If it's anything other than a 404 (Not Found), it's a real DB issue we should throw
-      if (error.response?.status !== 404) {
-        throw error;
-      }
+      if (error.response?.status !== 404) throw error;
     }
 
-    // Checking if DB has payload data
-    if (dbResponse?.data) {
+    // If the controller returns a value, it verified the input hash match
+    if (dbResponse?.itinerary) {
       console.log(`[DB HIT] Trip ${tripId}`);
+      const dbPayload = { source: "database", data: dbResponse.itinerary };
       
-      const dbItineraryPayload = {
-        source: "database",
-        data: dbResponse.data.itinerary || dbResponse.data.data, 
-      };
-
-      // Warm up the Redis cache for next time (TTL: 1 hour)
-      await CacheService.set(cacheKey, dbItineraryPayload, 3600);
-
-      return dbItineraryPayload;
+      await CacheService.set(cacheKey, dbPayload, 3600);
+      return dbPayload;
     }
-    console.log(`[DB MISS] Trip ${tripId}`);
+    console.log(`[DB MISS OR HASH MISMATCH] Trip ${tripId}`);
 
     // ==========================
-    // 3. GENERATE AI (Fallback)
+    // 3. GENERATE VIA LLM ENGINE
     // ==========================
-    console.log(`[AI GENERATION START] Generating itinerary via Gemma for trip ${tripId}`);
+    console.log(`[AI GENERATION] Input configuration altered. Executing Gemma-2...`);
     const corePromptText = generateItineraryPrompt(input);
-
-    const combinedPayloadPrompt = `
-[SYSTEM DIRECTION]
-You are a deterministic backend data orchestration engine.
-You must output raw valid JSON only.
-
-[USER REQUEST]
-${corePromptText}
-`;
+    const combinedPayloadPrompt = `\n[SYSTEM DIRECTION]\nYou are a deterministic backend data orchestration engine.\nYou must output raw valid JSON only.\n\n[USER REQUEST]\n${corePromptText}\n`;
 
     const completion = await nvClient.chat.completions.create({
       model: "google/gemma-2-2b-it",
-      messages: [
-        {
-          role: "user",
-          content: combinedPayloadPrompt,
-        },
-      ],
+      messages: [{ role: "user", content: combinedPayloadPrompt }],
       temperature: 0.2,
       top_p: 0.7,
       max_tokens: 2048,
@@ -90,37 +72,26 @@ ${corePromptText}
     });
 
     const rawContent = completion.choices[0]?.message?.content;
-    if (!rawContent) {
-      throw new Error("NVIDIA API returned empty response");
-    }
+    if (!rawContent) throw new Error("NVIDIA API returned empty response");
 
     const cleanedText = rawContent.replace(/```json|```/g, "").trim();
-    const jsonParsed = JSON.parse(cleanedText);
-    const validatedItinerary = ItineraryOutputSchema.parse(jsonParsed);
+    const validatedItinerary = ItineraryOutputSchema.parse(JSON.parse(cleanedText));
 
-    const finalPayload = {
-      source: "nvidia-gemma",
-      data: validatedItinerary,
-    };
+    const clientPayload = { source: "nvidia-gemma", data: validatedItinerary };
 
     // ==========================
-    // 4. PERSIST TO DB & CACHE
+    // 4. PERSIST NEW DATA VARIANT
     // ==========================
-    // Save to database so future requests hit step 2
-    await saveItinerary(tripId, {
-      source: "nvidia-gemma",
-      data: validatedItinerary,
-    });
-    console.log(`[DB SAVE] Trip ${tripId}`);
+    await saveItinerary(tripId, validatedItinerary, inputHash);
+    console.log(`[DB UPSERT SUCCESS] Synchronized input config ${inputHash}`);
 
-    // Save to Redis cache so future requests hit step 1
-    await CacheService.set(cacheKey, finalPayload, 3600);
-    console.log(`[REDIS SAVE] ${cacheKey}`);
+    await CacheService.set(cacheKey, clientPayload, 3600);
+    console.log(`[REDIS WARMUP] Saved key ${cacheKey}`);
 
-    return finalPayload;
+    return clientPayload;
 
   } catch (error: any) {
-    console.error("[AI Service Error]", error);
-    throw new Error(error.message || "Failed to generate itinerary");
+    console.error("[AI Service Pipeline Failure]", error);
+    throw new Error(error.message || "Failed to process target itinerary lifecycle step.");
   }
 }
