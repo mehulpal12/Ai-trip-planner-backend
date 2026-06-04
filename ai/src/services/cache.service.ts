@@ -24,4 +24,8 @@ export class CacheService {
     );
   }
 
+  static async delete(key: string) {
+    await redisClient.del(key);
+  }
+
 }

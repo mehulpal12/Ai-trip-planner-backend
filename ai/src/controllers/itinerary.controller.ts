@@ -2,27 +2,59 @@ import { type Request, type Response } from "express";
 import { ItineraryInputSchema } from "../types/itinerary.types.js";
 import { processItineraryGeneration } from "../services/itinerary.service.js";
 import { redisClient } from "../config/redis.js";
-import { generateItineraryCacheKey } from "../utils/cache.js";
 
 /**
  * CREATE & CACHE: Generates a new itinerary and saves it to global cache memory
  * POST /api/ai/itinerary/generate
  */
-export async function handleItineraryCreation(req: Request, res: Response): Promise<void> {
+export async function handleItineraryCreation(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
-    const validatedInput = ItineraryInputSchema.parse(req.body);
 
-    // 1. Run the caching + Gemini generation pipeline
-    const itineraryData = await processItineraryGeneration(validatedInput);
+    const validatedInput =
+      ItineraryInputSchema.parse(req.body);
 
-    res.status(200).json({ success: true, ...itineraryData });
-  } catch (error: any) {
-    if (error.name === "ZodError") {
-       res.status(400).json({ success: false, errors: error.errors });
-       return;
+    const { tripId } = req.params;
+
+    if (!tripId) {
+      res.status(400).json({
+        success: false,
+        message: "tripId is required"
+      });
+      return;
     }
+
+    const itineraryData =
+      await processItineraryGeneration(
+        validatedInput,
+        tripId as string
+      );
+
+    res.status(200).json({
+      success: true,
+      ...itineraryData,
+    });
+
+  } catch (error: any) {
+
+    if (error.name === "ZodError") {
+      res.status(400).json({
+        success: false,
+        errors: error.errors,
+      });
+      return;
+    }
+
     console.error(error);
-    res.status(500).json({ success: false, message: error.message || "Internal server error" });
+
+    res.status(500).json({
+      success: false,
+      message:
+        error.message ||
+        "Internal server error",
+    });
   }
 }
 
@@ -30,50 +62,57 @@ export async function handleItineraryCreation(req: Request, res: Response): Prom
  * READ ALL: Gets all historical itineraries still alive across the global cache
  * GET /api/ai/itinerary/history
  */
-export async function handleGetAllUserItineraries(_: Request, res: Response): Promise<void> {
-  try {
-    // 1. Scan the entire Redis memory pool for all active itinerary cache keys
-    const globalKeys = await redisClient.keys("itinerary:*");
+export async function handleGetAllUserItineraries(
+  _: Request,
+  res: Response
+): Promise<void> {
 
-    if (globalKeys.length === 0) {
-      res.status(200).json({ success: true, count: 0, data: [] });
+  try {
+
+    const keys =
+      await redisClient.keys(
+        "trip:*:itinerary"
+      );
+
+    if (keys.length === 0) {
+      res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
+
       return;
     }
 
-    // 2. Fetch data blocks for all found keys simultaneously
-    const rawItineraries = await redisClient.mGet(globalKeys);
-    const activeItineraries = [];
+    const values =
+      await redisClient.mGet(keys);
 
-    for (let i = 0; i < globalKeys.length; i++) {
-      if (rawItineraries[i]) {
-        // Break down the key string (e.g., "itinerary:India:5:5000:Solo") to parse layout parameters
-        const segments = globalKeys[i]!.split(":");
-        const destination = segments[1] || "Unknown";
-        const days = segments[2] ? Number(segments[2]) : 0;
-        const budget = segments[3] ? Number(segments[3]) : 0;
-        const travelStyle = segments[4] || "Standard";
+    const itineraries = [];
 
-        activeItineraries.push({
-          id: globalKeys[i], // The raw cache key acts as the unique identifier string
-          destination,
-          days,
-          budget,
-          travelStyle,
-          fullData: {
-            source: "redis",
-            data: JSON.parse(rawItineraries[i]!)
-          }
-        });
-      }
+    for (let i = 0; i < keys.length; i++) {
+
+      if (!values[i]) continue;
+
+      itineraries.push({
+        cacheKey: keys[i],
+        data: JSON.parse(values[i]!)
+      });
+
     }
 
     res.status(200).json({
       success: true,
-      count: activeItineraries.length,
-      data: activeItineraries
+      count: itineraries.length,
+      data: itineraries
     });
+
   } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+
   }
 }
 

@@ -11,7 +11,7 @@ app.use(helmet());
 app.use(express.json());
 
 // Routes
-app.use("/api/ai/itinerary", itineraryRouter);
+app.use("/api/ai/trips", itineraryRouter);
 
 app.get("/health", (_, res) => {
   res.status(200).json({ success: true, service: "ai-service 123456", status: "healthy" });

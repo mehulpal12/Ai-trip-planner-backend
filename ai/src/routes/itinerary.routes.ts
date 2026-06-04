@@ -15,6 +15,7 @@ const router = Router();
 
 // 1. Generate & Cache (Checks rate-limiting first)
 router.post("/generate",  handleItineraryCreation);
+router.post("/:tripId/itinerary/generate",  handleItineraryCreation);
 
 // 2. Read History Stack (Fetches all unexpired cached objects for the sidebar)
 router.get("/history", handleGetAllUserItineraries);

@@ -16,9 +16,29 @@ import {
   removeMember,
 } from "../controllers/member.controller.js";
 
+import * as itineraryController from "../modules/itinerary/itinerary.controller.js";
+
+
 
 
 const router = express.Router();
+
+
+router.post(
+  "/internal/trips/:tripId/itinerary",
+  itineraryController.save
+);
+
+router.get( 
+  "/internal/trips/:tripId/itinerary",
+  itineraryController.get
+);
+
+
+router.delete(
+  "/internal/trips/:tripId/itinerary",
+  itineraryController.deleteController
+);
 
 router.post("/", protect, createTrip);
 
@@ -30,12 +50,12 @@ router.get("/:id", protect, getTripById);
 
 router.put("/:id", protect, isTripOwner, updateTrip);
 
-router.delete("/:id", protect, isTripOwner, deleteTrip);
+// router.delete("/:id", protect, isTripOwner, deleteTrip);
 
 // Member Routes
 router.post("/:id/members", protect, isTripOwner, addMember);
 router.get("/:id/members", protect, getMembers);
-router.delete("/:id/members/:userId", protect, isTripOwner, removeMember);
+// router.delete("/:id/members/:userId", protect, isTripOwner, removeMember);
 
 
 export default router;

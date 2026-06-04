@@ -1,3 +1,4 @@
+import { Prisma } from "../generated/prisma/client.js";
 import prisma from "../config/db.js";
 
 export const createTrip = async (data: any) => {
@@ -149,7 +150,7 @@ export const updateTrip = async (id: string, data: any) => {
 export const deleteTrip = async (
   id: string
 ) => {
-  return prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     await tx.tripMember.deleteMany({
       where: { tripId: id },
     });
