@@ -2,11 +2,16 @@ import { type Request, type Response } from "express";
 import { ItineraryInputSchema } from "../types/itinerary.types.js";
 import { processItineraryGeneration } from "../services/itinerary.service.js";
 import { redisClient } from "../config/redis.js";
-
+import crypto from "crypto";
 /**
  * CREATE & CACHE: Generates a new itinerary and saves it to global cache memory
  * POST /api/ai/itinerary/generate
  */
+
+
+
+
+
 export async function handleItineraryCreation(
   req: Request,
   res: Response
@@ -18,7 +23,9 @@ export async function handleItineraryCreation(
 
     const { tripId } = req.params;
 
+
     if (!tripId) {
+
       res.status(400).json({
         success: false,
         message: "tripId is required"

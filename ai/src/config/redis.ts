@@ -17,7 +17,7 @@ redisClient.on("error", (err) => {
   console.error("Redis Client Error:", err);
 });
 
-// redisClient.on("connect", () => console.log("🔌 Socket connected to native Redis server"));
+redisClient.on("connect", () => console.log("🔌 Socket connected to native Redis server"));
 redisClient.on("ready", () => console.log("🎯 Redis Client Ready and Connected!"));
 
 // Connect to the server

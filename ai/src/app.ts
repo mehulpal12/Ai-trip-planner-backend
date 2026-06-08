@@ -6,11 +6,12 @@ import { redisClient } from "./config/redis.js";
 
 const app = express();
 
+// Global Middleware Setup
 app.use(cors());
 app.use(helmet());
 app.use(express.json());
 
-// Routes
+// Routes Setup
 app.use("/api/ai/trips", itineraryRouter);
 
 app.get("/health", (_, res) => {
@@ -19,20 +20,20 @@ app.get("/health", (_, res) => {
 
 app.get("/redis-health", async (_, res) => {
   try {
+    // If protocolVersion is correctly set to 2, this ping will execute flawlessly
     const result = await redisClient.ping();
-
     res.status(200).json({
       success: true,
       redis: result,
     });
-
-  } catch (error) {
-
+  } catch (error: any) {
     res.status(500).json({
       success: false,
+      error: error.message
     });
-
   }
 });
+
+
 
 export default app;
