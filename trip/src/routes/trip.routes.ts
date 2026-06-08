@@ -39,7 +39,7 @@ router.get(
 router.delete(
   "/internal/trips/:tripId/itinerary",
   itineraryController.deleteController
-);
+);  
 
 router.post("/", protect, createTrip);
 
@@ -50,9 +50,9 @@ router.get("/me", protect, getUserTrips);
 router.get("/:tripId", protect, getTripById);
 router.get("/itinerary/:tripId", getItineraryByTripId);
 
-router.put("/:tripId", protect, isTripOwner, updateTrip);
+router.put("/:id", protect, isTripOwner, updateTrip);
 
-router.delete("/:tripId", protect, isTripOwner, deleteTrip);
+router.delete("/:id", protect, isTripOwner, deleteTrip);
 
 // Member Routes
 router.post("/:tripId/members", protect, isTripOwner, addMember);
