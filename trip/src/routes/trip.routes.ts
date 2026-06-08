@@ -8,6 +8,7 @@ import {
   updateTrip,
   deleteTrip,
   getUserTrips,
+  getItineraryByTripId,
 } from "../controllers/trip.controller.js";
 import { isTripOwner } from "../middlewares/authorize.js";
 import {
@@ -47,15 +48,16 @@ router.get("/", protect, getTrips);
 router.get("/me", protect, getUserTrips);
 
 router.get("/:id", protect, getTripById);
+router.get("/itinerary/:tripId", getItineraryByTripId);
 
 router.put("/:id", protect, isTripOwner, updateTrip);
 
-// router.delete("/:id", protect, isTripOwner, deleteTrip);
+router.delete("/:id", protect, isTripOwner, deleteTrip);
 
 // Member Routes
 router.post("/:id/members", protect, isTripOwner, addMember);
 router.get("/:id/members", protect, getMembers);
-// router.delete("/:id/members/:userId", protect, isTripOwner, removeMember);
+router.delete("/:id/members/:userId", protect, isTripOwner, removeMember);
 
 
 export default router;

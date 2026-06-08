@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AuthRequest } from "../middlewares/protect.js";
 
 import * as tripService from "../services/trip.service.js";
+import prisma from "../config/db.js";
 
 export const createTrip = async (
   req: AuthRequest,
@@ -45,7 +46,7 @@ export const getTrips = async (
   });
 };
 
-export const getTripById = async (
+export const getTripById: any = async (
   req: AuthRequest,
   res: Response
 ) => {
@@ -101,6 +102,45 @@ export const updateTrip = async (
   });
 };
 
+export async function getItineraryByTripId(req: Request, res: Response) {
+  try {
+    const { tripId } = req.params;
+
+    if (!tripId) {
+      return res.status(400).json({
+        success: false,
+        message: "Trip ID parameter is required."
+      });
+    }
+
+    // 1. Fetch the trip first (or query itinerary directly via tripId depending on your logic)
+    const trip = await prisma.trip.findUnique({
+      where: { id: tripId },
+      include: { itinerary: true }
+    });
+
+    // 2. Safeguard against undefined/null records (Fixes your 500 error)
+    if (!trip) {
+      return res.status(404).json({
+        success: false,
+        message: `Trip with ID ${tripId} not found.`
+      });
+    }
+
+    // 3. Safe to read properties now because we know 'trip' exists
+    return res.status(200).json({
+      success: true,
+      data: trip.itinerary
+    });
+
+  } catch (error) {
+    console.error("Error inside getItineraryByTripId:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+}
 export const deleteTrip = async (
   req: AuthRequest,
   res: Response

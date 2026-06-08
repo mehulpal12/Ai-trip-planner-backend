@@ -68,23 +68,15 @@ export const createTrip = async (data: any) => {
 export const getTrips = async (userId: string) => {
   return getUserTrips(userId);
 };
-
-export const getTripById = async (
-  id: string
-) => {
+export const getTripById = async (id: string) => {
   return prisma.trip.findUnique({
     where: { id },
     include: {
-      destinations: {
-        orderBy: {
-          orderIndex: "asc",
-        },
-      },
-      members: true,
+      itinerary: true, // This fetches the itineraries array associated with the trip
+      // members: true,   // This fetches the members array associated with the trip
     },
   });
 };
-
 
 export const updateTrip = async (id: string, data: any) => {
   const { 
