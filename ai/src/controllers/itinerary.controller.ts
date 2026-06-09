@@ -17,44 +17,29 @@ export async function handleItineraryCreation(req: Request, res: Response): Prom
       return;
     }
 
-    // 1. Offload to BullMQ exactly like before (rate-limiting & retries still apply!)
     const job = await addItineraryJob(tripId as string, validatedInput);
 
-    // 2. PAUSE right here and poll the job's state internally
-    let jobState = await job.getState();
-    const maxTimeoutMs = 45000; // Give it 45 seconds max before giving up
-    const startTime = Date.now();
-
-    while (jobState !== "completed" && jobState !== "failed") {
-      // Check if the API request is taking too long to prevent absolute thread hanging
-      if (Date.now() - startTime > maxTimeoutMs) {
-        res.status(504).json({ success: false, message: "Generation timed out" });
-        return;
-      }
-
-      // Wait 1.5 seconds internally before checking Redis again
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      jobState = await job.getState();
-    }
-
-    // 3. Fetch the fresh job results from Redis
-    const freshJobDetails = await itineraryQueue.getJob(job.id as string);
-
-    if (jobState === "completed" && freshJobDetails) {
-      // Send back the EXACT expected data shape to the frontend!
-      res.status(200).json({
-        success: true,
-        ...freshJobDetails.returnvalue // Unpacks { source: "...", data: {...} }
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: freshJobDetails?.failedReason || "Background job failed processing."
-      });
-    }
-
+    res.status(202).json({
+      success: true,
+      message: "Itinerary generation job queued",
+      data: {
+        jobId: job.id,
+      },
+    });
   } catch (error: any) {
-    // ... your standard Zod and 500 error catch blocks remain here
+    if (error.name === "ZodError") {
+      res.status(400).json({
+        success: false,
+        errors: error.errors,
+      });
+      return;
+    }
+
+    console.error("Error queueing itinerary job:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to queue itinerary generation job",
+    });
   }
 }
 /**
@@ -85,12 +70,13 @@ export async function handleGetJobStatus(req: Request, res: Response): Promise<v
 
     res.status(200).json({
       success: true,
-      jobId: job.id,
-      status: state,
-      progress: progress,
-      // If the job finished, the data returned by processItineraryGeneration is here
-      result: state === "completed" ? job.returnvalue : undefined,
-      error: state === "failed" ? job.failedReason : undefined,
+      data: {
+        jobId: job.id,
+        status: state,
+        progress,
+        result: state === "completed" ? job.returnvalue : undefined,
+        error: state === "failed" ? job.failedReason : undefined,
+      },
     });
   } catch (error: any) {
     console.error("Error retrieving job lifecycle info:", error);

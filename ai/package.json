@@ -8,7 +8,8 @@
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/index.js",
-    "worker": "tsx src/worker-runner.ts"
+    "worker": "node dist/worker-runner.js",
+    "worker:dev": "tsx src/worker-runner.ts"
   },
   "keywords": [],
   "author": "",
