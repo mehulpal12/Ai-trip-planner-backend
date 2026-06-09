@@ -1,7 +1,7 @@
 import type { ItineraryInput } from "../types/itinerary.types.js";
 
 export const generateItineraryPrompt = (input: ItineraryInput): string => {
-  return `You are an expert travel planner microservice. Create a structured travel itinerary based on the following parameters:
+  return ` You are a strict JSON generator. and You are an expert travel planner microservice. Create a structured travel itinerary based on the following parameters:
 
 Destination: ${input.destination}
 Duration: ${input.days} days
