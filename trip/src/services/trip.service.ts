@@ -142,7 +142,7 @@ export const updateTrip = async (id: string, data: any) => {
 export const deleteTrip = async (
   id: string
 ) => {
-  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  return prisma.$transaction(async (tx) => {
     await tx.tripMember.deleteMany({
       where: { tripId: id },
     });

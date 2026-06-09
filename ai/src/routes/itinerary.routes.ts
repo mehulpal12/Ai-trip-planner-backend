@@ -14,11 +14,11 @@ const router = Router();
 // router.use(protectAuth)
 
 // 1. Generate & Cache (Checks rate-limiting first)
-router.post("/generate",  handleItineraryCreation);
-router.post("/:tripId/itinerary/generate",  handleItineraryCreation);
+router.post("/generate", aiRateLimiter, handleItineraryCreation);
+router.post("/:tripId/itinerary/generate", aiRateLimiter, handleItineraryCreation);
 
 // 2. Read History Stack (Fetches all unexpired cached objects for the sidebar)
-router.get("/history", handleGetAllUserItineraries);
+router.get("/history", aiRateLimiter, handleGetAllUserItineraries);
 
 // 3. Delete Specific Target Cache Key
 router.delete("/remove-item", handleDeleteSingleItinerary);

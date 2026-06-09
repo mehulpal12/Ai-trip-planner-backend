@@ -47,8 +47,8 @@ router.get("/", protect, getTrips);
 
 router.get("/me", protect, getUserTrips);
 
-router.get("/:tripId", protect, getTripById);
 router.get("/itinerary/:tripId", getItineraryByTripId);
+router.get("/:tripId", protect, getTripById);
 
 router.put("/:id", protect, isTripOwner, updateTrip);
 

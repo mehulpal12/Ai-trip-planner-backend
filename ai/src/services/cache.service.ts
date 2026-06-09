@@ -14,7 +14,7 @@ export class CacheService {
     key: string,
     value: unknown,
     ttl = 3600
-  ) {
+  ) { 
     await redisClient.set(
       key,
       JSON.stringify(value),

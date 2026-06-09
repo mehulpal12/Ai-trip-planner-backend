@@ -41,7 +41,6 @@ model Itinerary {
 
   // 3. This composite unique constraint is the magic fix
   @@unique([tripId, inputHash])
-  @@index([tripId])
 }
 
 model TripMember {

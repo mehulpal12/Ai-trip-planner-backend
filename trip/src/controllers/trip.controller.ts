@@ -8,7 +8,6 @@ export const createTrip = async (
   req: AuthRequest,
   res: Response
 ) => {
-
   if (!req.user || !req.user.id) {
     return res.status(401).json({
       success: false,
@@ -57,7 +56,10 @@ export const getTripById: any = async (
     });
   }
 
-  const trip = await tripService.getTripById(req.params.id as string);
+  // Enforce string type to satisfy Prisma if this flows directly down stream
+  const tripId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  const trip = await tripService.getTripById(tripId as string);
 
   if (!trip) {
     return res.status(404).json({
@@ -66,10 +68,13 @@ export const getTripById: any = async (
     });
   }
 
-  // 🚀 FIX: explicitly type 'member' matching Prisma's type signature, allowing null values
+  // 🚀 FIX: Cast 'trip' as any or build an explicit type assertion here because 
+  // tripService.getTripById's return type signature doesn't officially declare 'members'.
+  const tripWithRelations = trip as any;
+
   const hasAccess =
-    trip.createdBy === req.user.id ||
-    trip.members?.some(
+    tripWithRelations.createdBy === req.user.id ||
+    tripWithRelations.members?.some(
       (member: { userId: string }) => member.userId === req.user.id
     );
 
@@ -90,11 +95,13 @@ export const updateTrip = async (
   req: AuthRequest,
   res: Response
 ) => {
-  const trip =
-    await tripService.updateTrip(
-      req.params.id as string,
-      req.body
-    );
+  // FIX: Line 118 safeguard - Clean up string arrays from parameters
+  const tripId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  const trip = await tripService.updateTrip(
+    tripId as string,
+    req.body
+  );
 
   res.status(200).json({
     success: true,
@@ -113,21 +120,24 @@ export async function getItineraryByTripId(req: Request, res: Response) {
       });
     }
 
-    // 1. Fetch the trip first (or query itinerary directly via tripId depending on your logic)
+    // Clean parameter to force strict string type
+    const cleanTripId = Array.isArray(tripId) ? tripId[0] : tripId;
+
+    // 1. Fetch the trip with the relation arrays
     const trip = await prisma.trip.findUnique({
-      where: { id: tripId },
-      include: { itinerary: true }
+      where: { id: cleanTripId  as string},
+      include: { itinerary: true, members: true }
     });
 
-    // 2. Safeguard against undefined/null records (Fixes your 500 error)
+    // 2. Safeguard against undefined/null records
     if (!trip) {
       return res.status(404).json({
         success: false,
-        message: `Trip with ID ${tripId} not found.`
+        message: `Trip with ID ${cleanTripId} not found.`
       });
     }
 
-    // 3. Safe to read properties now because we know 'trip' exists
+    // 3. Since 'itinerary' is an array (Itinerary[]), returning it wholesale is valid.
     return res.status(200).json({
       success: true,
       data: trip.itinerary
@@ -141,13 +151,14 @@ export async function getItineraryByTripId(req: Request, res: Response) {
     });
   }
 }
+
 export const deleteTrip = async (
   req: AuthRequest,
   res: Response
 ) => {
-  await tripService.deleteTrip(
-    req.params.id as string
-  );
+  const tripId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  await tripService.deleteTrip(tripId as string);
 
   res.status(200).json({
     success: true,
