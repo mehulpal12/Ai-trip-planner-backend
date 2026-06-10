@@ -64,7 +64,7 @@ app.use(
     changeOrigin: true,
     pathRewrite: (path, req) => {
       // Forcefully keeps the prefix intact before passing it down
-      return path.startsWith("/api/ai") ? path : `/api/ai${path}`;
+      return path.startsWith("/api/ai/trips") ? path : `/api/ai${path}`;
     },
     logger: console
   })
