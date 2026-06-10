@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import itineraryRouter from "./routes/itinerary.routes.js";
 import { redisClient } from "./config/redis.js";
-
+import { serverAdapter } from "./config/bull-board.js";
 const app = express();
 
 // Global Middleware Setup
@@ -13,6 +13,10 @@ app.use(express.json());
 
 // Routes Setup
 app.use("/api/ai/trips", itineraryRouter);
+app.use(
+  "/admin/queues",
+  serverAdapter.getRouter()
+);
 
 app.get("/health", (_, res) => {
   res.status(200).json({ success: true, service: "ai-service 123456", status: "healthy" });

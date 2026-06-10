@@ -24,7 +24,6 @@ function generateInputHash(input: ItineraryInput): string {
  * Handles the actual execution of Redis checks, DB fallbacks, and NVIDIA AI generation.
  */
 // Helper utility to safely sanitize, balance, and parse LLM JSON responses
-// Helper utility to clean unescaped string pollution and balance broken LLM response blocks
 function cleanAndRecoverAIJson(rawText: string): any {
   let cleaned = rawText.trim();
 
@@ -41,11 +40,9 @@ function cleanAndRecoverAIJson(rawText: string): any {
     
     try {
       // 2. High-Fidelity Pre-Parsing Sanitization Loop
-      // This regex safely escapes unescaped inner quotes inside string values without corrupting JSON layout properties
       let sanitized = cleaned.replace(
         /(?<=:\s*\[?\s*")(.+?)(?="\s*\]?[\s,}\]])/g, 
         (match) => {
-          // Escape unescaped double quotes inside the actual activity content strings
           return match.replace(/(?<!\\)"/g, '\\"');
         }
       );
@@ -80,7 +77,6 @@ function cleanAndRecoverAIJson(rawText: string): any {
         }
       }
 
-      // If everything failed, throw a readable structural error
       throw new Error(
         `AI generated data formatting was heavily corrupted. (Original Position Error: ${initialError.message})`
       );
@@ -142,6 +138,7 @@ Keep activity descriptions short and punchy to prevent running out of token limi
 ${corePromptText}
 `;
 
+    // CRITICAL NVIDIA NIM RESOLUTION: response_format parameter removed entirely to pass gateway restrictions
     const completion = await nvClient.chat.completions.create({
       model: "google/gemma-2-2b-it",
       messages: [{ role: "user", content: combinedPayloadPrompt }],
@@ -149,9 +146,6 @@ ${corePromptText}
       top_p: 0.7,
       max_tokens: 2048,
       stream: false,
-      response_format: {
-        type: "json_object",
-      },
     });
 
     const rawContent = completion.choices[0]?.message?.content;
@@ -183,4 +177,3 @@ ${corePromptText}
     );
   }
 }
-

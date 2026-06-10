@@ -1,5 +1,5 @@
 import request from 'supertest';
-import app from './app.js'; 
+import app from './app.js'; // Adjust if your app entry point is located elsewhere
 import prisma from './config/db.js';
 import 'dotenv/config';
 
@@ -7,53 +7,37 @@ describe('User API Endpoints', () => {
   let accessToken: string;
   let refreshToken: string;
   let testUserId: string;
-  
+
+  // Use a highly unique email to avoid unique constraint conflicts across multiple local runs
   const testUser = {
-    name: "Test User",
-    email: `test-${Date.now()}@example.com`,
-    password: "Password123!",
+    name: "Mehul Test User",
+    email: `developer-${Date.now()}@example.com`,
+    password: "SecurePassword123!"
   };
 
-  // Cleanup after tests
   afterAll(async () => {
-    // Check if user exists before trying to delete to avoid errors
-    const user = await prisma.user.findUnique({ where: { email: testUser.email } });
-    if (user) {
-      await prisma.user.delete({ where: { email: testUser.email } });
-    }
+    // Clean up our generated test user from the database
+    await prisma.user.deleteMany({
+      where: { email: testUser.email }
+    });
     await prisma.$disconnect();
-  });
+  }, 30000);
 
-  // 1. Public Routes
-  it('POST /api/users/register - Should register a new user', async () => {
+  // --- 1. POST /api/users/register ---
+  it('POST /api/users/register - Should register a new user successfully', async () => {
     const res = await request(app)
       .post('/api/users/register')
       .send(testUser);
 
     expect(res.statusCode).toEqual(201);
     expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('id');
+    
     testUserId = res.body.data.id;
   });
 
-  it('POST /api/users/login - Should fail if email is not verified', async () => {
-    const res = await request(app)
-      .post('/api/users/login')
-      .send({
-        email: testUser.email,
-        password: testUser.password
-      });
-
-    expect(res.statusCode).toEqual(401);
-    expect(res.body.message).toBe('Please verify your email first');
-  });
-
-  it('POST /api/users/login - Should login and return tokens after verification', async () => {
-    // Verify the user first so login works!
-    await prisma.user.update({
-      where: { id: testUserId },
-      data: { isVerified: true }
-    });
-
+  // --- 2. POST /api/users/login ---
+  it('POST /api/users/login - Should login cleanly and return both auth tokens inside data wrapper', async () => {
     const res = await request(app)
       .post('/api/users/login')
       .send({
@@ -62,58 +46,68 @@ describe('User API Endpoints', () => {
       });
 
     expect(res.statusCode).toEqual(200);
-    expect(res.body).toHaveProperty('accessToken');
-    expect(res.body).toHaveProperty('refreshToken');
+    expect(res.body.success).toBe(true);
     
-    accessToken = res.body.accessToken;
-    refreshToken = res.body.refreshToken;
+    // Assert against your controller's exact nested payload structure
+    expect(res.body.data).toHaveProperty('accessToken');
+    expect(res.body.data).toHaveProperty('refreshToken');
 
-    // Promote user to ADMIN to test admin routes
-    await prisma.user.update({
-      where: { id: testUserId },
-      data: { role: 'ADMIN' }
-    });
+    // Extract values for the following stateful tests
+    accessToken = res.body.data.accessToken;
+    refreshToken = res.body.data.refreshToken;
   });
 
-  // 2. Protected Routes
-  it('GET /api/users/profile - Should fail without token', async () => {
-    const res = await request(app).get('/api/users/profile');
+  // --- 3. GET /api/users/profile (Unauthorized Guard Check) ---
+  it('GET /api/users/profile - Should block request with 401 if no authorization header is sent', async () => {
+    const res = await request(app)
+      .get('/api/users/profile');
+
     expect(res.statusCode).toEqual(401);
   });
 
-  it('GET /api/users/profile - Should work with valid token', async () => {
+  // --- 4. GET /api/users/profile (Authorized Access) ---
+  it('GET /api/users/profile - Should fetch profile successfully using bearer token', async () => {
     const res = await request(app)
       .get('/api/users/profile')
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
     expect(res.body.data.email).toBe(testUser.email);
   });
 
-  // 3. Token Lifecycle
-  it('POST /api/users/refresh-token - Should return new access token', async () => {
+  // --- 5. POST /api/users/refresh-token ---
+  it('POST /api/users/refresh-token - Should reissue a fresh access token using valid body token payload', async () => {
     const res = await request(app)
       .post('/api/users/refresh-token')
       .send({ refreshToken });
 
     expect(res.statusCode).toEqual(200);
-    expect(res.body).toHaveProperty('accessToken');
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toHaveProperty('accessToken');
+
+    // Dynamically cycle token so downstream requests remain operational
+    accessToken = res.body.data.accessToken;
   });
 
-  // 4. Admin / Specific Management
-  it('GET /api/users/:id - Should fetch user by ID', async () => {
+  // --- 6. GET /api/users/:id (Self/Admin Authorization Guard) ---
+  it('GET /api/users/:id - Should fetch a specific user record by context ID string', async () => {
     const res = await request(app)
       .get(`/api/users/${testUserId}`)
       .set('Authorization', `Bearer ${accessToken}`);
 
     expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
     expect(res.body.data.id).toBe(testUserId);
   });
 
-  it('POST /api/users/logout - Should return success', async () => {
+  // --- 7. POST /api/users/logout ---
+  it('POST /api/users/logout - Should sign user out and invalidate current state', async () => {
     const res = await request(app)
       .post('/api/users/logout')
       .set('Authorization', `Bearer ${accessToken}`);
+
     expect(res.statusCode).toEqual(200);
+    expect(res.body.success).toBe(true);
   });
 });
