@@ -1,5 +1,5 @@
 import { Queue } from "bullmq";
-import { redisConnection } from "../config/bullmq.js";
+import { redisConnection, QUEUE_NAME } from "../config/bullmq.js";
 import type { ItineraryInput } from "../types/itinerary.types.js";
 
 // Keep the structure clean and unified
@@ -7,8 +7,6 @@ export interface ItineraryJobPayload {
   tripId: string;
   input: ItineraryInput;
 }
-
-export const QUEUE_NAME = "itinerary-generation";
 
 export const itineraryQueue = new Queue<ItineraryJobPayload>(QUEUE_NAME, {
   connection: redisConnection,

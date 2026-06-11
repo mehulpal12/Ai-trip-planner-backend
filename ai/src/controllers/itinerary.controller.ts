@@ -2,6 +2,7 @@ import { type Request, type Response } from "express";
 import { ItineraryInputSchema } from "../types/itinerary.types.js";
 import { redisClient } from "../config/redis.js";
 import { addItineraryJob, itineraryQueue } from "../queues/itinerary.queue.js";
+import { getExistingItineraryResult } from "../services/itinerary.service.js";
 
 /**
  * NON-BLOCKING CREATION: Validates input, schedules a job, and returns instantly
@@ -14,6 +15,19 @@ export async function handleItineraryCreation(req: Request, res: Response): Prom
 
     if (!tripId) {
       res.status(400).json({ success: false, message: "tripId is required" });
+      return;
+    }
+
+    const existingResult = await getExistingItineraryResult(validatedInput, tripId as string);
+    if (existingResult) {
+      res.status(200).json({
+        success: true,
+        message: "Itinerary loaded from existing result",
+        data: {
+          status: "completed",
+          result: existingResult,
+        },
+      });
       return;
     }
 

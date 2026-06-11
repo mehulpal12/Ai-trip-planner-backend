@@ -14,7 +14,7 @@ const nvClient = new OpenAI({
   apiKey: process.env.NVIDIA_API_KEY,
 });
 
-function generateInputHash(input: ItineraryInput): string {
+export function generateInputHash(input: ItineraryInput): string {
   const sortedString = JSON.stringify(input, Object.keys(input).sort());
   return crypto.createHash("sha256").update(sortedString).digest("hex");
 }
@@ -176,4 +176,35 @@ ${corePromptText}
       error.message || "Failed to process target itinerary lifecycle step.",
     );
   }
+}
+
+export async function getExistingItineraryResult(
+  input: ItineraryInput,
+  tripId: string,
+): Promise<any | null> {
+  const inputHash = generateInputHash(input);
+  const cacheKey = `trip:${tripId}:input:${inputHash}:itinerary`;
+
+  const cachedData = await CacheService.get<any>(cacheKey);
+  if (cachedData) {
+    console.log(`[REDIS HIT] ${cacheKey}`);
+    return { source: "redis-cache", data: cachedData.data };
+  }
+
+  let dbResponse = null;
+  try {
+    dbResponse = await getItinerary(tripId, inputHash);
+  } catch (error: any) {
+    if (error.response?.status !== 404) throw error;
+  }
+
+  if (!dbResponse?.itinerary) {
+    return null;
+  }
+
+  console.log(`[DB HIT] Trip ${tripId}`);
+  const dbPayload = { source: "database", data: dbResponse.itinerary };
+  await CacheService.set(cacheKey, dbPayload, 3600);
+
+  return dbPayload;
 }
