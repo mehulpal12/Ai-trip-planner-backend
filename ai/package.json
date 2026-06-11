@@ -3,15 +3,16 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
-  "scripts": {
+"scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
     "start": "node dist/index.js",
     "worker": "node dist/worker-runner.js",
     "worker:dev": "tsx src/worker-runner.ts",
-    "dev:all": "concurrently -n \"API,WORKER\" -c \"cyan,magenta\" \"npm run dev\" \"npm run worker:dev\""
-  },
+    "dev:all": "concurrently -n \"API,WORKER\" -c \"cyan,magenta\" \"npm run dev\" \"npm run worker:dev\"",
+    "start:all": "concurrently -n \"API,WORKER\" -c \"cyan,magenta\" \"npm run start\" \"npm run worker\""
+},
   "keywords": [],
   "author": "",
   "license": "ISC",
